@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build (GCC) Nokia KPI Parser",
+            "type": "shell",
+            "command": "c++",
+            "args": [
+                "-o",
+                "${workspaceFolder}/NokiaKpiParser",
+                "${workspaceFolder}/*.cpp",
+                "${workspaceFolder}/sources/*.cpp",
+                "${workspaceFolder}/tinyxml2/*.cpp"                
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "type": "shell",
+            "label": "g++ build active file",
+            "command": "/usr/bin/g++",
+            "args": [
+                "-g",
+                "${file}",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}"
+            ],
+            "options": {
+                "cwd": "/usr/bin"
+            }
+        }
+    ]
+}
