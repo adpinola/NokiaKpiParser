@@ -21,7 +21,9 @@
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
                 }
-            ]
+            ],
+            "preLaunchTask": "Build (GCC) Nokia KPI Parser",
+            "miDebuggerPath": "/usr/bin/gdb"            
         }
     ]
 }

@@ -8,8 +8,10 @@
 #include <cstdio>
 #include <ctime>
 #include <string>
+#include <cstring>
 #include <vector>
 #include <string.h>
+#include <sys/types.h>
 #include <dirent.h>
 
 using namespace std;
@@ -19,10 +21,10 @@ using namespace tinyxml2;
 
 int main(int argc, char *argv[])
 {
+    vector<string> MOs;        // Guardo aca todos los MO del reporte
     vector<string> contadores; // Maximo 200 contadores
     XMLDocument doc;           // Reporte de KPIs
     int N_COUNTERS = 0;
-    char aux_contador[12];
     // Primero abrimos directorio donde estan los KPIs
     // En este caso va a ser en el mismo lugar de ejecucion del programa
     DIR *d;
@@ -50,9 +52,9 @@ int main(int argc, char *argv[])
             {
                 // Es un XML entonces lo abro.
                 ifstream strKPIReport(dir->d_name);
-                cout << "Reporte encontrado: " << Filename << Extension << endl;
+                std::cout << "Reporte encontrado: " << Filename << Extension << endl;
                 doc.LoadFile(dir->d_name);
-                cout << "Parse: " << doc.ErrorName() << endl
+                std::cout << "Parse: " << doc.ErrorName() << endl
                      << endl;
                 strKPIReport.close();
             }
@@ -60,29 +62,28 @@ int main(int argc, char *argv[])
             {
                 // Tengo el template de contadores
                 ifstream strTemplate(dir->d_name);
-                cout << "Template encontrado: " << Filename << Extension << endl;
+                std::cout << "Template encontrado: " << Filename << Extension << endl;
                 int i = 0;
-                memset(aux_contador, 0, 12);
                 while (!strTemplate.eof() && i < COUNTER_LIMIT)
                 {
-                    memset(aux_contador, 0, 12);
-                    strTemplate.getline(aux_contador, 12);
-                    contadores.push_back(aux_contador);
-                    cout << "Contador #" << i << ": " << contadores[i] << endl;
+                    string aux;
+                    getline(strTemplate, aux, ',');
+                    contadores.push_back(move(aux));
+                    std::cout << "Contador #" << i << ": " << contadores.at(i) << endl;
                     i++;
                 }
                 N_COUNTERS = i;
                 strTemplate.close();
             }
         }
-        cout << endl;
+        std::cout << endl;
         closedir(d);
     }
     // Tenemos en XMLDocument doc el XML parseado, ahora tenemos que extraer informacion
     const XMLAttribute *startTime = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FindAttribute("startTime");
-    cout << "> startTime: " << startTime->Value() << endl;
+    std::cout << "> startTime: " << startTime->Value() << endl;
     const XMLAttribute *interval = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FindAttribute("interval");
-    cout << "> interval: " << interval->Value() << endl;
+    std::cout << "> interval: " << interval->Value() << endl;
 
     // Dada la lista de contadores que tenemos en contadores[] vamos a empezar a armar la tabla
     /* Formato de Tabla a devolver
@@ -92,22 +93,52 @@ int main(int argc, char *argv[])
     *  Para algun contador que no corresponda a algun objeto, quedara el espacio en blanco
     */
     // Aca obtenemos el DN al cual pertenece el KPI
-    XMLNode *parent = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FirstChildElement("PMMOResult");
+
+    // En primer lugar vamos a guardar todos los MOs del reporte asi los tenemos listados
+    // Luego el objetivo es agrupar KPIs por MO en lugar de por Medicion para asi sacar en el reporte una linea por MO
+    XMLElement *parent = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FirstChildElement("PMMOResult");
     while (parent)
     {
-        cout << parent->FirstChildElement("MO")->FirstChildElement("DN")->FirstChild()->ToText()->Value() << "," << endl;
+        string MOdn(parent->FirstChildElement("MO")->FirstChildElement("DN")->FirstChild()->ToText()->Value());
+        if (MOs.empty())
+        {
+            MOs.push_back(MOdn);
+        }
+        else if (MOs.back() != MOdn)
+        {
+            MOs.push_back(MOdn);
+        }
+        parent = parent->NextSiblingElement("PMMOResult");
+    }
+    parent = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FirstChildElement("PMMOResult");
+    for (auto itrMO = MOs.begin(); itrMO != MOs.end(); ++itrMO)
+    {
+        std::cout << *itrMO << ",";
+        XMLElement *CounterNODE = parent->FirstChildElement("NE-WBTS_1.0")->FirstChildElement();
         for (auto itr = contadores.begin(); itr != contadores.end(); ++itr)
         {
-            XMLNode *CounterNODE = parent->FirstChildElement("NE-WBTS_1.0")->FirstChildElement((*itr).c_str());
-            if(CounterNODE)
+            XMLElement *root = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FirstChildElement("PMMOResult");
+            while (root)
             {
-                cout << CounterNODE->ToElement()->Value() << ",";
+                if( strcmp((*itrMO).c_str(),root->FirstChildElement("MO")->FirstChildElement("DN")->FirstChild()->ToText()->Value()) == 0)
+                {
+                    // Contadores del MO bajo analisis
+                    CounterNODE = root->FirstChildElement("NE-WBTS_1.0")->FirstChildElement();
+                    while (CounterNODE)
+                    {
+                        if (strcmp(CounterNODE->Name(), (*itr).c_str()) == 0)
+                        {
+                            std::cout << CounterNODE->FirstChild()->Value();
+                            break;
+                        }
+                        CounterNODE = CounterNODE->NextSiblingElement();
+                    }
+                }
+                root = root->NextSiblingElement("PMMOResult");
             }
+            std::cout << ",";
         }
-        cout << ",";
-        cout << endl;
-        parent = parent->NextSiblingElement("PMMOResult");
-        parent = 0;
+        std::cout << endl;
     }
     return 0;
 }
