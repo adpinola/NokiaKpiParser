@@ -81,7 +81,10 @@ int main(int argc, char *argv[])
     }
     // Tenemos en XMLDocument doc el XML parseado, ahora tenemos que extraer informacion
     const XMLAttribute *startTime = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FindAttribute("startTime");
-    std::cout << "> startTime: " << startTime->Value() << endl;
+    string periodStartTime(startTime->Value());
+    periodStartTime.replace(periodStartTime.find("T"),1," ");
+    periodStartTime.resize(19);
+    std::cout << "> startTime: " << periodStartTime << endl;
     const XMLAttribute *interval = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FindAttribute("interval");
     std::cout << "> interval: " << interval->Value() << endl;
 
@@ -96,6 +99,18 @@ int main(int argc, char *argv[])
 
     // En primer lugar vamos a guardar todos los MOs del reporte asi los tenemos listados
     // Luego el objetivo es agrupar KPIs por MO en lugar de por Medicion para asi sacar en el reporte una linea por MO
+    // los KPIs se van a guardar en un archivo output .csv
+
+    ofstream report("report.csv");
+    // Escribimos el titulo de las columnas
+    report << "periodStartTime,MO,";
+    for (auto itr = contadores.begin(); itr != contadores.end(); ++itr)
+    {
+        report << *itr << ",";
+    }    
+    report << endl;
+    // Ahora empezamos a recorrer el XML
+    bool f_existKPI=false;
     XMLElement *parent = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FirstChildElement("PMMOResult");
     while (parent)
     {
@@ -113,7 +128,9 @@ int main(int argc, char *argv[])
     parent = doc.FirstChildElement("OMeS")->FirstChildElement("PMSetup")->FirstChildElement("PMMOResult");
     for (auto itrMO = MOs.begin(); itrMO != MOs.end(); ++itrMO)
     {
-        std::cout << *itrMO << ",";
+        f_existKPI = false;
+        streampos line_start = report.tellp();
+        report << periodStartTime << "," << *itrMO << ",";
         XMLElement *CounterNODE = parent->FirstChildElement("NE-WBTS_1.0")->FirstChildElement();
         for (auto itr = contadores.begin(); itr != contadores.end(); ++itr)
         {
@@ -128,7 +145,8 @@ int main(int argc, char *argv[])
                     {
                         if (strcmp(CounterNODE->Name(), (*itr).c_str()) == 0)
                         {
-                            std::cout << CounterNODE->FirstChild()->Value();
+                            report << CounterNODE->FirstChild()->Value();
+                            f_existKPI = true;
                             break;
                         }
                         CounterNODE = CounterNODE->NextSiblingElement();
@@ -136,9 +154,11 @@ int main(int argc, char *argv[])
                 }
                 root = root->NextSiblingElement("PMMOResult");
             }
-            std::cout << ",";
+            report << ",";
         }
-        std::cout << endl;
+        if(f_existKPI)  report << endl;
+        else            report.seekp(line_start);
     }
+    report.close();
     return 0;
 }
