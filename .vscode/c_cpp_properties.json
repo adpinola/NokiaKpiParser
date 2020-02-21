@@ -4,7 +4,6 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "sources",
                 "includes",
                 "tinyxml2",
                 "/usr/local/lib" 
